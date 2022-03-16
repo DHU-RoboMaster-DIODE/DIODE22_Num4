@@ -107,7 +107,7 @@ void gimbal_rc_ctrl(void)
 	switch(rc.sw2){
 		case 2:		
 		case 3:
-			pitch_angle_set -= (float)rc.ch1/4000.0f;//¸©ÑöÖá
+			pitch_angle_set += (float)rc.ch1/4000.0f;//¸©ÑöÖá
 			if(pitch_angle_set>=pitch_angle_max) pitch_angle_set= pitch_angle_max;
 			else if(pitch_angle_set<=pitch_angle_min) pitch_angle_set= pitch_angle_min; 
 		  yaw_angle_set -=(float)rc.ch0/3000.0f;
@@ -123,7 +123,7 @@ void gimbal_rc_ctrl(void)
 
 void gimbal_pc_ctrl(void)
 {  
-	 pitch_angle_set += (float)rc.mouse_y/300.0f;//¸©ÑöÖá
+	 pitch_angle_set -= (float)rc.mouse_y/300.0f;//¸©ÑöÖá
 	 if(pitch_angle_set>=pitch_angle_max) pitch_angle_set= pitch_angle_max;
 	 else if(pitch_angle_set<=pitch_angle_min) pitch_angle_set= pitch_angle_min; 
 	 yaw_angle_set -=(float)rc.mouse_x/300.0f;
@@ -132,7 +132,7 @@ void gimbal_pc_ctrl(void)
    CAN_GM6020[0].set_angle_speed=PID_Calculate(&PID_GM6020[0],Find_MIN_ANGLE(yaw_angle_set,INS_angle[0]*57.295779513082f),0);
 	 CAN_GM6020[0].set_voltage = PID_Calculate(&PID_GM6020_speed[0],CAN_GM6020[0].set_angle_speed,INS_gyro[0]*57.295779513082f);
 	 CAN_GM6020[1].set_angle_speed=PID_Calculate(&PID_GM6020[1],pitch_angle_set,INS_angle[1]*57.295779513082f);
-	 CAN_GM6020[1].set_voltage = PID_Calculate(&PID_GM6020_speed[1],CAN_GM6020[1].set_angle_speed,INS_gyro[1]*57.295779513082f);	
+	 CAN_GM6020[1].set_voltage = -PID_Calculate(&PID_GM6020_speed[1],CAN_GM6020[1].set_angle_speed,INS_gyro[1]*57.295779513082f);	
 }
 
 

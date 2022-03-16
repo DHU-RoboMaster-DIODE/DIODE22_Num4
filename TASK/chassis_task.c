@@ -30,6 +30,9 @@ uint16_t time_chassis;
 uint16_t classis_speed,spin_speed;   //底盘基本速度,小陀螺速度根据裁判系统改变
 uint8_t SpinStartFlag,IsSpinFlag;//小陀螺标志
 uint8_t FollowSwitchFlag,IsFollowFlag=1,LastIsFollowFlag=1;
+float fTotalCurrentLimit;  //电流分配  平地情况下电流均等
+float WARNING_REMAIN_POWER = 60;
+float fChasCurrentLimit = 36000;
 
 eChassisAction actChassis=CHASSIS_FOLLOW_GIMBAL;   //默认底盘跟随云台行走
 eChassisAction actChassis_last = CHASSIS_FOLLOW_GIMBAL;
@@ -44,6 +47,7 @@ chassis_speed_t absolute_chassis;
 void chassis_rc_ctrl(void);
 void chassis_pc_ctrl(void);
 void chassis_control_loop(void); 
+void Chassis_Power_Limit(void);
 /**
   * @brief          寻找最小角度（编码器版本）用于标准化-pi~pi
   * @param[in]      pvParameters: 设置角度和
@@ -111,6 +115,7 @@ void chassis_task(void const *pvParameters)
             CAN_M3508[3].set_current=0;
 				}
 				//CAN通信向底盘四个电机发送电流值
+				Chassis_Power_Limit();
 				CAN_Chassis_SendCurrent();
         //系统绝对延时
         osDelayUntil(&lastWakeTime,CHASSIS_CONTROL_TIME_MS);
@@ -283,3 +288,68 @@ float logistic(int* x)
 ////	if(vy==0&&smooth_control.VY<0.05f&&smooth_control.VY>-0.05f) smooth_control.VY=0;
 ////	if(vz==0&&smooth_control.VZ<0.05f&&smooth_control.VZ>-0.05f) smooth_control.VZ=0;
 ////}
+
+
+uint16_t JUDGE_fGetRemainEnergy()
+{
+	return power_heat_data.chassis_power;
+}
+
+bool_t JUDGE_sGetDataState()
+{
+	return 1;
+}
+
+void Chassis_Power_Limit(void)
+{	
+	/*********************祖传算法*************************/
+	float    kLimit = 0;//功率限制系数
+	float    chassis_totaloutput = 0;//统计总输出电流
+	float    Joule_Residue = 0;//剩余焦耳缓冲能量
+	int16_t  judgDataCorrect = 0;//裁判系统数据是否可用	
+	static int32_t judgDataError_Time = 0;
+	
+	
+	judgDataCorrect = JUDGE_sGetDataState();//裁判系统数据是否可用
+	Joule_Residue = JUDGE_fGetRemainEnergy();//剩余焦耳能量	
+	
+	//统计底盘总输出
+	chassis_totaloutput = abs(CAN_M3508[0].current) + abs(CAN_M3508[1].current)
+							+ abs(CAN_M3508[2].current) + abs(CAN_M3508[3].current);
+	
+	if(!judgDataCorrect)//裁判系统无效时强制限速
+	{
+		judgDataError_Time++;
+		if(judgDataError_Time > 100)
+		{
+			fTotalCurrentLimit = 9000;//降为最大的1/4
+		}
+	}
+	else
+	{
+		judgDataError_Time = 0;
+		//剩余焦耳量过小,开始限制输出,限制系数为平方关系
+		if(Joule_Residue < WARNING_REMAIN_POWER)
+		{
+			kLimit = (float)(Joule_Residue / WARNING_REMAIN_POWER)
+						* (float)(Joule_Residue / WARNING_REMAIN_POWER);
+			
+			fTotalCurrentLimit = kLimit * fChasCurrentLimit;
+		}
+		else   //焦耳能量恢复到一定数值
+		{
+			fTotalCurrentLimit = fChasCurrentLimit;
+		}
+	}
+
+	//底盘各电机电流重新分配
+	if (chassis_totaloutput > fTotalCurrentLimit)
+	{
+		CAN_M3508[0].current = (int16_t)(CAN_M3508[0].current / chassis_totaloutput * fTotalCurrentLimit);
+		CAN_M3508[1].current = (int16_t)(CAN_M3508[0].current / chassis_totaloutput * fTotalCurrentLimit);
+		CAN_M3508[2].current = (int16_t)(CAN_M3508[0].current / chassis_totaloutput * fTotalCurrentLimit);
+		CAN_M3508[3].current = (int16_t)(CAN_M3508[0].current / chassis_totaloutput * fTotalCurrentLimit);	
+	}
+}
+
+
