@@ -56,7 +56,7 @@ void gimbal_control_loop(void);
 void gimbal_task(void const *pvParameters)
 {  
 //		KalmanCreate(&vis_data_yaw,20,200);
-    PID_Init(&PID_GM6020[0],POSITION_PID,1000,1000,60,0,500);	//45,0,200  50,1,300云台底部电机500,0,1500  自瞄：1000，0.3，1500     500,0,1500     1200,0.1,4200
+    PID_Init(&PID_GM6020[0],POSITION_PID,1000,1000,30,0,500);	//45,0,200  50,1,300云台底部电机500,0,1500  自瞄：1000，0.3，1500     500,0,1500     1200,0.1,4200
     PID_Init(&PID_GM6020_speed[0],POSITION_PID,30000,10000,100,0,50);//50,0.01,4 50,0,3  0.0001   5 0 0    4000,0,4000
 		PID_Init(&PID_GM6020[1],POSITION_PID,1000,1000,60,0,200);		// 云台侧面电机1600
     PID_Init(&PID_GM6020_speed[1],POSITION_PID,30000,10000,70,0,0);//0.0001
